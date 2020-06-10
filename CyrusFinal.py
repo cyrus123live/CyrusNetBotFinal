@@ -63,7 +63,7 @@ def scanning(min, max, n):
 def scan(scanRadStart, scanRadEnd):
 
     scanReply = botSocket.sendRecvMessage(
-        {'type': 'scanRequest', 'startRadians': scanRadStart, 'endRadians': scanRadEnd})
+        {'type': 'scanRequest', 'startRadians': nbmath.normalizeAngle(scanRadStart), 'endRadians': nbmath.normalizeAngle(scanRadEnd)})
 
     # if we found an enemy robot with our scan
     if scanReply['distance'] >= 50:
@@ -235,7 +235,7 @@ def play(botSocket, srvConf):
                         x = getLocationReply['x']
                         y = getLocationReply['y']
 
-                        if angleOfBullet != 0 and scan(nbmath.normalizeAngle(nbmath.angle(x, y, enemyX, enemyY)) - math.pi/24, nbmath.normalizeAngle(nbmath.angle(x, y, enemyX, enemyY) + math.pi/24)):
+                        if angleOfBullet != 0 and scan(nbmath.angle(x, y, enemyX, enemyY) - math.pi/24, nbmath.angle(x, y, enemyX, enemyY) + math.pi/24):
                             botSocket.sendRecvMessage(
                                 {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': distanceToNearestBot})
                             currentMode = "wait"
