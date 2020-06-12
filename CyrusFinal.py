@@ -24,19 +24,14 @@ distanceToNearestBot = 0
 
 def scanning(min, max, n):
 
-    if (min < max-1 and wall != "left") or (min > max+1 and wall == "left"):
+    if min < max-1:
 
-        scanSlices = 32
+        scanSlices = 50
         mid = (min+max)/2
 
-        if wall == "left" and n < 5:
-            scanSlice1Start = math.pi/16*max
-            midSliceRad = math.pi/16*mid
-            scanSlice2End = math.pi/16*min
-        else:
-            scanSlice1Start = math.pi/16*min
-            midSliceRad = math.pi/16*mid
-            scanSlice2End = math.pi/16*max
+        scanSlice1Start = math.pi/25*min
+        midSliceRad = math.pi/25*mid
+        scanSlice2End = math.pi/25*max
 
         minScan = scan(scanSlice1Start, midSliceRad)
         minScanDistance = distanceToNearestBot
@@ -131,7 +126,7 @@ def play(botSocket, srvConf):
             global wall
             wall = ""
             currentMode = "scan"
-            scanSlices = 32
+            scanSlices = 50
             nextScanSlice = 0
             scanSliceWidth = math.pi * 2 / scanSlices
             maxScanSlice = 0
@@ -212,63 +207,41 @@ def play(botSocket, srvConf):
 
                 if currentMode == "scan":
 
-                    defensiveScan = True if scanCounter % 6 == 0 else False
+                    getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+                    x = getLocationReply['x']
+                    y = getLocationReply['y']
 
-                    # defensive scan
-                    if defensiveScan:
-
-                        scanSliceTemp = nextScanSlice
-
-                        scanRadStart = nbmath.normalizeAngle(direction - math.pi/4)
-                        scanRadEnd = nbmath.normalizeAngle(direction + math.pi/4)
-
-                        if scan(scanRadStart, scanRadEnd):
-                            # i made this as two different if statements because we are setting distanceToNearestBot within scan
-                            if distanceToNearestBot < 200:
-                                speed = 0
-                                reversing = True
-                                botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': speed})
+                    if angleOfBullet != 0 and scan(nbmath.angle(x, y, enemyX, enemyY) - math.pi/32, nbmath.angle(x, y, enemyX, enemyY) + math.pi/32):
+                        botSocket.sendRecvMessage(
+                            {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': distanceToNearestBot})
+                        currentMode = "wait"
 
                     else:
 
-                        getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
-                        x = getLocationReply['x']
-                        y = getLocationReply['y']
+                        scanning(minScanSlice, maxScanSlice, 1)
 
-                        if angleOfBullet != 0 and scan(nbmath.angle(x, y, enemyX, enemyY) - math.pi/24, nbmath.angle(x, y, enemyX, enemyY) + math.pi/24):
+                        if (distanceToNearestBot > 150):
+
+                            distanceOfBullet = nbmath.distance(x, y, enemyX, enemyY)
+                            angleOfBullet = nbmath.angle(x, y, enemyX, enemyY)
+
                             botSocket.sendRecvMessage(
-                                {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': distanceToNearestBot})
+                                {'type': 'fireCanonRequest', 'direction': angleOfBullet, 'distance': distanceOfBullet})
                             currentMode = "wait"
-
-                        else:
-
-                            scanning(minScanSlice, maxScanSlice, 1)
-
-                            if (distanceToNearestBot > 150):
-
-                                distanceOfBullet = nbmath.distance(x, y, enemyX, enemyY)
-                                angleOfBullet = nbmath.angle(x, y, enemyX, enemyY)
-
-                                botSocket.sendRecvMessage(
-                                    {'type': 'fireCanonRequest', 'direction': angleOfBullet, 'distance': distanceOfBullet})
-                                currentMode = "wait"
 
                     scanCounter += 1
 
             # initialize starting scan slice
             else:
                 if wall == "up":
-                    minScanSlice = 16
-                    maxScanSlice = 32
-                elif wall == "left":
-                    minScanSlice = 24
-                    maxScanSlice = 8
+                    minScanSlice = 25
+                    maxScanSlice = 50
                 elif wall == "down":
                     minScanSlice = 0
-                    maxScanSlice = 16
+                    maxScanSlice = 25
                 elif wall == "right":
-                    minScanSlice = 8
-                    maxScanSlice = 24
+                    minScanSlice = 12.5
+                    maxScanSlice = 37.5
 
             counter += 1
 
