@@ -24,7 +24,7 @@ distanceToNearestBot = 0
 
 def scanning(min, max, n):
 
-    if min < max-1:
+    if min < max-1 and not(distanceToNearestBot <= 250 and n>=3) and not(distanceToNearestBot <= 500 and n>=4) and not(distanceToNearestBot <= 700 and n>=5):
 
         scanSlices = 50
         mid = (min+max)/2
