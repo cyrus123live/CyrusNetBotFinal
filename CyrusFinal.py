@@ -21,8 +21,11 @@ enemyX = 0
 enemyY = 0
 wall = ""
 distanceToNearestBot = 0
+targetAcquired = False
 
 def scanning(min, max, n):
+
+    global targetAcquired
 
     if min < max-1 and not(distanceToNearestBot <= 250 and n>=3) and not(distanceToNearestBot <= 500 and n>=4) and not(distanceToNearestBot <= 700 and n>=5):
 
@@ -53,6 +56,7 @@ def scanning(min, max, n):
 
     else:
 
+        targetAcquired = True
         return (min+max)/2 #?
 
 def scan(scanRadStart, scanRadEnd):
@@ -77,6 +81,35 @@ def scan(scanRadStart, scanRadEnd):
         return True
     else:
         return False
+
+## search for target by increasing scan size, when found set targetAcquired and enemy coordinates
+def targetRelocation():
+    global enemyX
+    global enemyY
+    localEnemyX = enemyX
+    localEnemyY = enemyY
+    localTargetAcquired = False
+    getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
+    x = getLocationReply['x']
+    y = getLocationReply['y']
+    scanRadStart = 0
+    scanRadEnd = 0
+    n = 1
+
+    while n < 4:
+        scanRadStart = nbmath.normalizeAngle(nbmath.angle(x, y, localEnemyX, localEnemyY) - math.pi/(8 - n))
+        scanRadEnd = nbmath.normalizeAngle(nbmath.angle(x, y, localEnemyX, localEnemyY) + math.pi/(8 - n))
+        if localTargetAcquired == True:
+            break
+        if scan(scanRadStart, scanRadEnd):
+            localTargetAcquired = True
+        else:
+            n += 1
+            continue
+
+    if localTargetAcquired:
+        scanning((scanRadStart / (math.pi*2))*50, (scanRadEnd / (math.pi*2))*50, 1)
+
 
 def reverseDirection(direction, wall):
 
@@ -131,8 +164,7 @@ def play(botSocket, srvConf):
             scanSliceWidth = math.pi * 2 / scanSlices
             maxScanSlice = 0
             minScanSlice = 0
-            angleOfBullet = 0
-            distanceOfBullet = 0
+            global targetAcquired
 
             getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
             x = getLocationReply['x']
@@ -182,6 +214,12 @@ def play(botSocket, srvConf):
                 botSocket.sendRecvMessage({'type': 'setSpeedRequest', 'requestedSpeed': speed})
                 reversing = False
 
+                # if the bot gets stuck before it reaches target wall, the least we can do is allow it to shoot 360 degrees
+                #if (x > 20 and x < 980 and y < 980 and y > 20):
+                #    minScanSlice = 0
+                #    maxScanSlice = math.pi*2 - 0.01
+
+
             elif not(reversing):
 
                 if startingDirection:
@@ -207,14 +245,15 @@ def play(botSocket, srvConf):
 
                 if currentMode == "scan":
 
-                    getLocationReply = botSocket.sendRecvMessage({'type': 'getLocationRequest'})
-                    x = getLocationReply['x']
-                    y = getLocationReply['y']
+                    if targetAcquired:
 
-                    if angleOfBullet != 0 and scan(nbmath.angle(x, y, enemyX, enemyY) - math.pi/32, nbmath.angle(x, y, enemyX, enemyY) + math.pi/32):
-                        botSocket.sendRecvMessage(
-                            {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': distanceToNearestBot})
-                        currentMode = "wait"
+                        if  scan(nbmath.angle(x, y, enemyX, enemyY) - math.pi/32, nbmath.angle(x, y, enemyX, enemyY) + math.pi/32):
+                            botSocket.sendRecvMessage(
+                                {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': distanceToNearestBot})
+                            currentMode = "wait"
+                        else:
+                            targetAcquired = False
+                            targetRelocation()
 
                     else:
 
@@ -222,12 +261,15 @@ def play(botSocket, srvConf):
 
                         if (distanceToNearestBot > 150):
 
-                            distanceOfBullet = nbmath.distance(x, y, enemyX, enemyY)
-                            angleOfBullet = nbmath.angle(x, y, enemyX, enemyY)
+                            targetAcquired = True
 
                             botSocket.sendRecvMessage(
-                                {'type': 'fireCanonRequest', 'direction': angleOfBullet, 'distance': distanceOfBullet})
+                                {'type': 'fireCanonRequest', 'direction': nbmath.angle(x, y, enemyX, enemyY), 'distance': nbmath.distance(x, y, enemyX, enemyY)})
                             currentMode = "wait"
+
+                        else:
+
+                            targetAcquired = False
 
                     scanCounter += 1
 
